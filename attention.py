@@ -54,3 +54,55 @@ class SelfAttention(nn.Module):
 
         # [b_size, seq_len, d_embed]
         return output
+
+
+class CrossAttention(nn.Module):
+    def __init__(
+        self,
+        n_heads: int,
+        d_embed: int,
+        d_cross: int,
+        in_proj_bias=True,
+        out_proj_bias=True,
+    ):
+        super().__init__()
+        self.q_proj = nn.Linear(d_embed, d_embed, bias=in_proj_bias)
+        self.k_proj = nn.Linear(d_cross, d_embed, bias=in_proj_bias)
+        self.v_proj = nn.Linear(d_cross, d_embed, bias=in_proj_bias)
+        self.out_proj = nn.Linear(d_embed, d_embed, bias=out_proj_bias)
+        self.n_heads = n_heads
+        self.d_head = d_embed // n_heads
+
+    def forward(self, x, y):
+        # x = query (latent) -> [b_size, seq_len_q, d_embed_q]
+        # y = key, value (context) -> [b_size, seq_len_kv, dim_kv] = [b_size, 77, 768]
+
+        input_shape = x.shape
+        b_size, seq_len, d_embed = input_shape
+
+        interim_shape = (b_size, -1, self.n_heads, self.d_head)
+
+        # Multiply query by Wq
+        q = self.q_proj(x)
+        k = self.k_proj(y)
+        v = self.v_proj(y)
+
+        q = q.view(interim_shape).transpose(1, 2)
+        k = k.view(interim_shape).transpose(1, 2)
+        v = v.view(interim_shape).transpose(1, 2)
+
+        weight = q @ k.tranpose(-1, -2)
+
+        weight /= math.sqrt(self.d_head)
+
+        weight = F.softmax(weight, dim=-1)
+
+        output = weight @ v
+
+        output = output.transpose(1, 2).contiguous()
+
+        output = output.view(input_shape)
+
+        output = self.out_proj(output)
+
+        return output

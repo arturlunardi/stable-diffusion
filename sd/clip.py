@@ -56,7 +56,7 @@ class CLIP(nn.Module):
         # vocab_size, embed_size, max_sentence_length
         self.embedding = CLIPEmbedding(49408, 768, 77)
 
-        self.layers = nn.Module(
+        self.layers = nn.ModuleList(
             [
                 # n_heads
                 CLIPLayer(12, 768)
